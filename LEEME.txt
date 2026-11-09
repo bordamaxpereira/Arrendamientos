@@ -1,0 +1,26 @@
+ADMINARriendos - archivos PWA
+
+Contenido:
+- index.html: aplicación adaptada para instalarse como PWA.
+- manifest.json: nombre, icono, colores y modo de apertura.
+- sw.js: almacenamiento en caché para apertura offline.
+
+IMPORTANTE:
+1. Copia tu archivo icono.ico a esta misma carpeta, al lado de index.html.
+2. Sube TODOS estos archivos a la raíz de un repositorio de GitHub:
+   index.html, manifest.json, sw.js e icono.ico.
+3. En GitHub abre Settings > Pages.
+4. En Build and deployment selecciona Deploy from a branch.
+5. Elige la rama main y la carpeta /(root), y guarda.
+6. Espera a que GitHub Pages publique la página.
+
+La aplicación debe abrirse mediante la URL HTTPS de GitHub Pages, no como archivo local.
+Después de abrirla una vez con internet:
+- Android/Chrome: menú ⋮ > Instalar aplicación o Añadir a pantalla de inicio.
+- iPhone/Safari: botón Compartir > Añadir a pantalla de inicio.
+
+NOTAS:
+- Los contratos y pagos se guardan en el almacenamiento local del navegador y la app también intenta sincronizar con el Google Apps Script que ya estaba configurado.
+- El modo offline permite abrir la interfaz y consultar datos guardados en ese dispositivo; la sincronización con Google requiere internet.
+- El icono ICO se mantiene como referencia. Para una mejor compatibilidad de instalación en iPhone y Android, conviene generar también icon-192.png, icon-512.png y apple-touch-icon.png a partir del mismo diseño.
+- El PIN incluido en el HTML es una barrera visual, no una protección de seguridad fuerte.

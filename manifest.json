@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "AdminArriendos",
+  "short_name": "Arriendos",
+  "description": "Administración y control de inmuebles y arriendos",
+  "lang": "es",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f4f6",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    {
+      "src": "./icono.ico",
+      "sizes": "any",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ]
+}

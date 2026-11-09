@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdminArriendos - Alexander Pérez Ladino</title>
+    <link rel="icon" type="image/x-icon" href="icono.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AdminArriendos">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Librería html2canvas para la captura de pantalla del recibo -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #reciboPrintArea, #reciboPrintArea * { visibility: visible; }
+            #reciboPrintArea { position: absolute; left: 0; top: 0; width: 100%; border: none; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased text-gray-800">
+
+    <!-- BLOQUEO PIN 6646 -->
+    <div id="lockScreen" class="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center">
+            <div class="w-16 h-16 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-1">Acceso Seguro</h2>
+            <p class="text-xs text-gray-500 mb-6">Administración de Inmuebles</p>
+            
+            <div class="flex justify-center gap-3 mb-6">
+                <input type="password" id="pin1" class="w-12 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg" readonly>
+                <input type="password" id="pin2" class="w-12 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg" readonly>
+                <input type="password" id="pin3" class="w-12 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg" readonly>
+                <input type="password" id="pin4" class="w-12 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg" readonly>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 mb-4">
+                <button type="button" onclick="pressPin('1')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">1</button>
+                <button type="button" onclick="pressPin('2')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">2</button>
+                <button type="button" onclick="pressPin('3')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">3</button>
+                <button type="button" onclick="pressPin('4')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">4</button>
+                <button type="button" onclick="pressPin('5')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">5</button>
+                <button type="button" onclick="pressPin('6')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">6</button>
+                <button type="button" onclick="pressPin('7')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">7</button>
+                <button type="button" onclick="pressPin('8')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">8</button>
+                <button type="button" onclick="pressPin('9')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">9</button>
+                <button type="button" onclick="clearPin()" class="bg-red-50 text-red-600 py-3 rounded-xl text-sm font-semibold">Borrar</button>
+                <button type="button" onclick="pressPin('0')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-300">0</button>
+                <button type="button" onclick="verifyPin()" class="bg-blue-900 text-white py-3 rounded-xl text-sm font-semibold">Entrar</button>
+            </div>
+            <p id="pinError" class="text-red-500 text-xs hidden mt-2">Clave incorrecta (6646).</p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="mainApp" class="min-h-screen flex flex-col pb-20">
+        <header class="bg-blue-900 text-white shadow-md p-4 sticky top-0 z-40 flex justify-between items-center">
+            <div>
+                <h1 class="text-md font-bold leading-tight">ALEXANDER PÉREZ LADINO</h1>
+                <p class="text-[10px] text-blue-200">Cel: 3001119396 | Gestión de Arriendos</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="sincronizarDatos()" id="syncBtn" class="bg-blue-800 hover:bg-blue-700 border border-blue-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow transition" title="Haz clic para actualizar con Google Sheets">
+                    <span id="syncDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="syncText" class="hidden sm:inline text-[11px]">Sincronizado</span>
+                </button>
+                
+                <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow">
+                    <i class="fa-solid fa-file-excel"></i> Excel
+                </button>
+                <button onclick="lockApp()" class="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow">
+                    <i class="fa-solid fa-lock"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-4xl w-full mx-auto p-4">
+            
+            <!-- DASHBOARD -->
+            <section id="tab-dashboard" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+                        <p class="text-xs text-gray-500">Contratos Vigentes</p>
+                        <h3 id="statContratos" class="text-2xl font-bold text-blue-900 mt-1">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+                        <p class="text-xs text-gray-500">Recaudado Acumulado</p>
+                        <h3 id="statRecaudado" class="text-xl font-bold text-green-600 mt-1">$0</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+                    <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-bell text-amber-500"></i> Alertas de Cobro Mensual
+                    </h2>
+                    <div id="alertasContainer" class="space-y-2"></div>
+                </div>
+            </section>
+
+            <!-- CONTRATOS -->
+            <section id="tab-contratos" class="hidden space-y-4">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <h2 class="text-lg font-bold text-gray-800">Directorio de Contratos</h2>
+                    <button onclick="openContratoModal()" class="bg-blue-900 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow flex items-center justify-center gap-1 self-start sm:self-auto">
+                        <i class="fa-solid fa-plus"></i> Nuevo Contrato
+                    </button>
+                </div>
+
+                <!-- FILTRO DE CONTRATOS -->
+                <div class="flex bg-gray-200 p-1 rounded-xl gap-1 text-xs font-semibold">
+                    <button id="filter-activos" onclick="setFiltroContratos('activos')" class="flex-1 py-1.5 rounded-lg text-center transition bg-white text-blue-900 shadow">Activos</button>
+                    <button id="filter-inactivos" onclick="setFiltroContratos('inactivos')" class="flex-1 py-1.5 rounded-lg text-center transition text-gray-600 hover:text-gray-900">Inactivos</button>
+                    <button id="filter-todos" onclick="setFiltroContratos('todos')" class="flex-1 py-1.5 rounded-lg text-center transition text-gray-600 hover:text-gray-900">Todos</button>
+                </div>
+
+                <div id="contratosList" class="space-y-3"></div>
+            </section>
+
+            <!-- PAGOS Y RECIBOS -->
+            <section id="tab-pagos" class="hidden space-y-4">
+                <h2 class="text-lg font-bold text-gray-800">Registrar Cobro de Arriendo</h2>
+                <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+                    <form id="pagoForm" onsubmit="registrarPago(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Seleccionar Contrato</label>
+                            <select id="pagoContratoId" onchange="autoFillPagoInfo()" required class="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white">
+                                <option value="">-- Seleccionar Inmueble / Inquilino --</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Valor Canon ($)</label>
+                                <input type="number" id="pagoValor" required class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Período de Pago</label>
+                                <input type="text" id="pagoConcepto" required placeholder="DD/MM/AAAA - DD/MM/AAAA" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-semibold shadow flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-file-invoice-dollar"></i> Generar Recibo de Pago
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+                    <h3 class="text-sm font-bold text-gray-800 mb-3">Historial de Recibos Generados</h3>
+                    <div id="recibosList" class="space-y-2"></div>
+                </div>
+            </section>
+
+            <!-- REPORTES DE PAGOS -->
+            <section id="tab-reportes" class="hidden space-y-4">
+                <h2 class="text-lg font-bold text-gray-800">Reportes y Estadísticas de Pagos</h2>
+                
+                <div class="bg-white p-4 rounded-xl shadow border border-gray-100 space-y-3">
+                    <div class="flex border-b pb-2 gap-2">
+                        <button onclick="cambiarSubReporte('mes')" id="btnSubMes" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-900 text-white">Por Mes</button>
+                        <button onclick="cambiarSubReporte('inquilino')" id="btnSubInquilino" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-200 text-gray-700">Por Inquilino</button>
+                    </div>
+
+                    <!-- Filtro Por Mes -->
+                    <div id="filtroMesContainer" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Seleccionar Mes</label>
+                                <select id="reporteMes" onchange="generarReporte()" class="w-full p-2 border rounded-lg text-xs bg-white">
+                                    <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                                    <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                                    <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                                    <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Año</label>
+                                <input type="number" id="reporteAnio" value="2026" onchange="generarReporte()" class="w-full p-2 border rounded-lg text-xs">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtro Por Inquilino -->
+                    <div id="filtroInquilinoContainer" class="space-y-3 hidden">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Seleccionar Inmueble / Inquilino</label>
+                            <select id="reporteInquilinoId" onchange="generarReporte()" class="w-full p-2 border rounded-lg text-xs bg-white">
+                                <option value="">-- Todos los contratos --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Resultado del Reporte -->
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 flex justify-between items-center">
+                        <div>
+                            <p class="text-[11px] text-blue-800 font-semibold">Total Recaudado en este filtro:</p>
+                            <h3 id="reporteTotalValor" class="text-xl font-bold text-blue-900">$0</h3>
+                        </div>
+                        <span id="reporteCantRecibos" class="bg-blue-900 text-white text-xs px-2.5 py-1 rounded-full font-bold">0 Recibos</span>
+                    </div>
+
+                    <div id="reporteListaResultados" class="space-y-2 pt-2"></div>
+                </div>
+            </section>
+        </main>
+
+        <nav class="bg-white border-t fixed bottom-0 left-0 right-0 z-30 flex justify-around py-3 shadow-lg">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="text-blue-900 flex flex-col items-center text-xs font-semibold">
+                <i class="fa-solid fa-chart-pie text-lg"></i> Resumen
+            </button>
+            <button onclick="switchTab('contratos')" id="nav-contratos" class="text-gray-400 flex flex-col items-center text-xs font-semibold">
+                <i class="fa-solid fa-file-contract text-lg"></i> Contratos
+            </button>
+            <button onclick="switchTab('pagos')" id="nav-pagos" class="text-gray-400 flex flex-col items-center text-xs font-semibold">
+                <i class="fa-solid fa-receipt text-lg"></i> Pagos
+            </button>
+            <button onclick="switchTab('reportes')" id="nav-reportes" class="text-gray-400 flex flex-col items-center text-xs font-semibold">
+                <i class="fa-solid fa-chart-column text-lg"></i> Reportes
+            </button>
+        </nav>
+    </div>
+
+    <!-- MODAL REGISTRO CONTRATO -->
+    <div id="contratoModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+            <h3 id="modalTitle" class="text-base font-bold text-blue-900">Registrar Nuevo Contrato</h3>
+            <form id="contratoForm" onsubmit="guardarContrato(event)" class="space-y-4">
+                <input type="hidden" id="editIndex" value="-1">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Nombre / Identificación del Inmueble</label>
+                    <input type="text" id="propiedad" required placeholder="Ej: Apto 401 - Edificio Los Alpes" class="w-full p-2 border rounded-lg text-sm">
+                </div>
+
+                <!-- SECCIÓN INQUILINO -->
+                <div class="border border-gray-200 rounded-xl p-3 bg-gray-50/50 space-y-2">
+                    <span class="text-xs font-bold text-blue-900 block"><i class="fa-solid fa-user mr-1"></i> Información del Inquilino</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="inquilino" required placeholder="Nombre Completo Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="telefono" required placeholder="Teléfono / WhatsApp Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="ref1Nombre" placeholder="Nombre Ref. 1 Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="ref1Tel" placeholder="Teléfono Ref. 1 Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="ref2Nombre" placeholder="Nombre Ref. 2 Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="ref2Tel" placeholder="Teléfono Ref. 2 Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <textarea id="obsInquilino" rows="2" placeholder="Observaciones Inquilino..." class="w-full p-2 border rounded-lg text-xs"></textarea>
+                </div>
+
+                <!-- SECCIÓN DEUDOR SOLIDARIO -->
+                <div class="border border-blue-200 rounded-xl p-3 bg-blue-50/30 space-y-2">
+                    <span class="text-xs font-bold text-blue-900 block"><i class="fa-solid fa-user-shield mr-1"></i> Información Deudor Solidario (Fiador)</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="fiador" placeholder="Nombre Deudor Solidario" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="telFiador" placeholder="Teléfono Deudor Solidario" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="ref1FiadorNombre" placeholder="Nombre Ref. 1 Deudor" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="ref1FiadorTel" placeholder="Teléfono Ref. 1 Deudor" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="ref2FiadorNombre" placeholder="Nombre Ref. 2 Deudor" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="ref2FiadorTel" placeholder="Teléfono Ref. 2 Deudor" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <textarea id="obsFiador" rows="2" placeholder="Observaciones Deudor Solidario..." class="w-full p-2 border rounded-lg text-xs"></textarea>
+                </div>
+
+                <!-- SECCIÓN FINANCIERA -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Canon Mensual ($)</label>
+                        <input type="number" id="canon" required placeholder="1200000" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Depósito Garantía ($)</label>
+                        <input type="number" id="deposito" placeholder="Valor depósito servicios/daños" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Fecha Inicio Contrato</label>
+                        <input type="date" id="fechaFirma" required class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Fecha Vencimiento</label>
+                        <input type="date" id="fechaVencimiento" required class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeContratoModal()" class="bg-gray-200 px-4 py-2 rounded-lg text-xs font-semibold">Cancelar</button>
+                    <button type="submit" class="bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-semibold">Guardar Contrato</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL RENOVACIÓN -->
+    <div id="renovacionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 class="text-base font-bold text-blue-900">Renovación de Contrato</h3>
+            <p class="text-xs text-gray-600">El contrato actual pasará a estado <strong>Inactivo</strong> y se creará uno nuevo en estado <strong>Activo</strong>.</p>
+            <form onsubmit="ejecutarRenovacion(event)" class="space-y-3">
+                <input type="hidden" id="renovarIndex">
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Nuevo Canon de Arriendo ($)</label>
+                    <input type="number" id="nuevoCanon" required class="w-full p-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Nueva Fecha de Inicio</label>
+                    <input type="date" id="nuevaFechaInicio" required class="w-full p-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Nueva Fecha de Vencimiento</label>
+                    <input type="date" id="nuevaFechaVencimiento" required class="w-full p-2 border rounded-lg text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeRenovacionModal()" class="bg-gray-200 px-4 py-2 rounded-lg text-xs font-semibold">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-semibold">Confirmar Renovación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL VISTA PREVIA RECIBO FORMAL -->
+    <div id="reciboViewModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+            <div id="reciboPrintArea" class="p-6 border border-gray-300 rounded-xl bg-white space-y-4">
+                <div class="text-center border-b pb-3">
+                    <h2 class="text-lg font-bold text-blue-900 tracking-wide">ALEXANDER PÉREZ LADINO</h2>
+                    <p class="text-xs font-semibold text-gray-600">ADMINISTRACIÓN Y CONTROL DE INMUEBLES DE TERCEROS</p>
+                    <p class="text-xs text-gray-500">Celular: 3001119396</p>
+                    <span id="vReciboId" class="inline-block mt-2 bg-blue-50 text-blue-900 text-xs font-bold px-3 py-1 rounded-full border border-blue-200"></span>
+                </div>
+                <div class="text-xs space-y-2">
+                    <p><strong>Fecha de Emisión:</strong> <span id="vFecha"></span></p>
+                    <p><strong>Recibí de:</strong> <span id="vInquilino"></span></p>
+                    <p><strong>La Suma de:</strong> <span id="vValorText" class="font-bold text-green-700"></span> ($<span id="vValor"></span>)</p>
+                    <p><strong>Por Concepto de:</strong> Arriendo inmueble <span id="vPropiedad" class="font-bold"></span></p>
+                    <p><strong>Período Correspondiente:</strong> <span id="vConcepto" class="font-bold text-blue-900"></span></p>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg border text-[11px] text-gray-600 italic text-center">
+                    "Recibí conforme el pago del período arriba estipulado. Este recibo no invalida cobros por conceptos o servicios adicionales pendientes."
+                </div>
+                <div class="pt-6 flex justify-between items-end text-xs">
+                    <div>
+                        <p class="font-bold text-gray-800">___________________________</p>
+                        <p class="text-gray-500 font-semibold">Firma Administrador</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-gray-400">Comprobante Digital Oficial</p>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" id="tempTel" />
+            <input type="hidden" id="tempReciboId" />
+
+            <!-- VISTA Y CONTENEDOR DE LA IMAGEN GENERADA -->
+            <div id="previewImagenArea" class="hidden border-2 border-emerald-500 rounded-xl p-3 bg-emerald-50 space-y-2 text-center">
+                <p class="text-xs font-bold text-emerald-900"><i class="fa-solid fa-circle-check mr-1"></i> ¡Imagen del Recibo Lista!</p>
+                <div id="imageContainer" class="flex justify-center overflow-hidden max-h-48 rounded border"></div>
+                <div class="flex justify-center gap-2 pt-1">
+                    <a id="btnDescargarImg" download="" class="bg-blue-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow">
+                        <i class="fa-solid fa-download"></i> Descargar PNG
+                    </a>
+                    <a id="btnWhatsAppDirecto" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow">
+                        <i class="fa-brands fa-whatsapp"></i> Abrir WhatsApp
+                    </a>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap justify-end gap-2">
+                <button onclick="closeReciboModal()" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs font-semibold">Cerrar</button>
+                <button onclick="window.print()" class="bg-blue-900 text-white px-3 py-2 rounded-lg text-xs font-semibold"><i class="fa-solid fa-file-pdf mr-1"></i> Imprimir</button>
+                <button onclick="generarImagenRecibo()" id="btnGenerarImg" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 shadow"><i class="fa-solid fa-image"></i> Convertir a Imagen PNG</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LÓGICA -->
+    <script>
+        let enteredPin = "";
+        const correctPin = "6646";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxy53KKrYGs9CFXG1eFdkU3HpQ9ocHPT8IpSnSQ49yQUwy9DyXBFftrVDmYI5APYj6pPA/exec";
+        let filtroContratos = 'activos';
+        let tipoReporteActual = 'mes';
+
+        window.addEventListener('keydown', function (e) {
+            let lock = document.getElementById('lockScreen');
+            if (lock && !lock.classList.contains('hidden')) {
+                if (e.key >= '0' && e.key <= '9') {
+                    pressPin(e.key);
+                } else if (e.key === 'Backspace') {
+                    clearPin();
+                } else if (e.key === 'Enter') {
+                    verifyPin();
+                }
+            }
+        });
+
+        function pressPin(n) {
+            if(enteredPin.length < 4) {
+                enteredPin += n;
+                updatePinDots();
+                if(enteredPin.length === 4) {
+                    verifyPin();
+                }
+            }
+        }
+
+        function clearPin() {
+            enteredPin = "";
+            updatePinDots();
+            document.getElementById('pinError').classList.add('hidden');
+        }
+
+        function updatePinDots() {
+            for(let i = 1; i <= 4; i++) {
+                let dot = document.getElementById(`pin${i}`);
+                if(dot) dot.value = i <= enteredPin.length ? "*" : "";
+            }
+        }
+
+        function verifyPin() {
+            if(enteredPin === correctPin) {
+                let lock = document.getElementById('lockScreen');
+                if(lock) lock.classList.add('hidden');
+                document.getElementById('reporteAnio').value = new Date().getFullYear();
+                document.getElementById('reporteMes').value = String(new Date().getMonth() + 1).padStart(2, '0');
+                renderAll();
+                sincronizarDatos();
+            } else {
+                let err = document.getElementById('pinError');
+                if(err) err.classList.remove('hidden');
+                enteredPin = "";
+                updatePinDots();
+            }
+        }
+
+        function lockApp() {
+            enteredPin = "";
+            updatePinDots();
+            let lock = document.getElementById('lockScreen');
+            if(lock) lock.classList.remove('hidden');
+        }
+
+        let db = JSON.parse(localStorage.getItem('adminArriendosDB_v2')) || { contratos: [], pagos: [] };
+
+        function saveData() {
+            localStorage.setItem('adminArriendosDB_v2', JSON.stringify(db));
+            renderAll();
+        }
+
+        function syncToGoogleSheets(payload) {
+            actualizarEstadoSync('sincronizando');
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                actualizarEstadoSync('ok');
+            }).catch(e => {
+                console.log("Sync error", e);
+                actualizarEstadoSync('error');
+            });
+        }
+
+        function sincronizarDatos() {
+            actualizarEstadoSync('sincronizando');
+            fetch(GOOGLE_SCRIPT_URL)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.contratos) {
+                        if(data.contratos.length > 0) db.contratos = data.contratos;
+                        if(data.pagos && data.pagos.length > 0) db.pagos = data.pagos;
+                        saveData();
+                    }
+                    actualizarEstadoSync('ok');
+                })
+                .catch(err => {
+                    console.log("Modo offline o CORS:", err);
+                    actualizarEstadoSync('ok');
+                });
+        }
+
+        function actualizarEstadoSync(estado) {
+            let dot = document.getElementById('syncDot');
+            let text = document.getElementById('syncText');
+            if(!dot || !text) return;
+
+            if(estado === 'sincronizando') {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping";
+                text.innerText = "Sincronizando...";
+            } else if(estado === 'ok') {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                text.innerText = "Sincronizado";
+            } else {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+                text.innerText = "Sin conexión";
+            }
+        }
+
+        function setFiltroContratos(tipo) {
+            filtroContratos = tipo;
+            ['activos', 'inactivos', 'todos'].forEach(f => {
+                let btn = document.getElementById(`filter-${f}`);
+                if(btn) {
+                    if(f === tipo) {
+                        btn.className = "flex-1 py-1.5 rounded-lg text-center transition bg-white text-blue-900 shadow font-bold";
+                    } else {
+                        btn.className = "flex-1 py-1.5 rounded-lg text-center transition text-gray-600 hover:text-gray-900 font-semibold";
+                    }
+                }
+            });
+            renderAll();
+        }
+
+        function cambiarSubReporte(tipo) {
+            tipoReporteActual = tipo;
+            let btnMes = document.getElementById('btnSubMes');
+            let btnInq = document.getElementById('btnSubInquilino');
+            let divMes = document.getElementById('filtroMesContainer');
+            let divInq = document.getElementById('filtroInquilinoContainer');
+
+            if(tipo === 'mes') {
+                btnMes.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-900 text-white";
+                btnInq.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-200 text-gray-700";
+                divMes.classList.remove('hidden');
+                divInq.classList.add('hidden');
+            } else {
+                btnInq.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-900 text-white";
+                btnMes.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-200 text-gray-700";
+                divInq.classList.remove('hidden');
+                divMes.classList.add('hidden');
+            }
+            generarReporte();
+        }
+
+        function switchTab(t) {
+            ['dashboard', 'contratos', 'pagos', 'reportes'].forEach(tab => {
+                let elTab = document.getElementById(`tab-${tab}`);
+                let elNav = document.getElementById(`nav-${tab}`);
+                if(elTab) elTab.classList.add('hidden');
+                if(elNav) elNav.className = "text-gray-400 flex flex-col items-center text-xs font-semibold";
+            });
+            let targetTab = document.getElementById(`tab-${t}`);
+            let targetNav = document.getElementById(`nav-${t}`);
+            if(targetTab) targetTab.classList.remove('hidden');
+            if(targetNav) targetNav.className = "text-blue-900 flex flex-col items-center text-xs font-semibold";
+            
+            if(t === 'reportes') {
+                cargarSelectReportesInquilinos();
+                generarReporte();
+            }
+            renderAll();
+        }
+
+        function openContratoModal(idx = -1) {
+            let modal = document.getElementById('contratoModal');
+            if(modal) modal.classList.remove('hidden');
+            if(idx >= 0) {
+                let c = db.contratos[idx];
+                document.getElementById('editIndex').value = idx;
+                document.getElementById('modalTitle').innerText = "Editar Contrato";
+                document.getElementById('propiedad').value = c.propiedad;
+                document.getElementById('inquilino').value = c.inquilino;
+                document.getElementById('telefono').value = c.telefono;
+                document.getElementById('ref1Nombre').value = c.ref1Nombre || "";
+                document.getElementById('ref1Tel').value = c.ref1Tel || "";
+                document.getElementById('ref2Nombre').value = c.ref2Nombre || "";
+                document.getElementById('ref2Tel').value = c.ref2Tel || "";
+                document.getElementById('obsInquilino').value = c.obsInquilino || "";
+                document.getElementById('fiador').value = c.fiador || "";
+                document.getElementById('telFiador').value = c.telFiador || "";
+                document.getElementById('ref1FiadorNombre').value = c.ref1FiadorNombre || "";
+                document.getElementById('ref1FiadorTel').value = c.ref1FiadorTel || "";
+                document.getElementById('ref2FiadorNombre').value = c.ref2FiadorNombre || "";
+                document.getElementById('ref2FiadorTel').value = c.ref2FiadorTel || "";
+                document.getElementById('obsFiador').value = c.obsFiador || "";
+                document.getElementById('canon').value = c.canon;
+                document.getElementById('deposito').value = c.deposito || 0;
+                document.getElementById('fechaFirma').value = c.fechaFirma;
+                document.getElementById('fechaVencimiento').value = c.fechaVencimiento;
+            } else {
+                document.getElementById('editIndex').value = -1;
+                document.getElementById('modalTitle').innerText = "Nuevo Contrato";
+                let form = document.getElementById('contratoForm');
+                if(form) form.reset();
+            }
+        }
+
+        function closeContratoModal() {
+            let modal = document.getElementById('contratoModal');
+            if(modal) modal.classList.add('hidden');
+        }
+
+        function guardarContrato(e) {
+            e.preventDefault();
+            let idx = parseInt(document.getElementById('editIndex').value);
+            let c = {
+                id: idx >= 0 ? db.contratos[idx].id : "CTO-" + Date.now(),
+                propiedad: document.getElementById('propiedad').value,
+                inquilino: document.getElementById('inquilino').value,
+                telefono: document.getElementById('telefono').value,
+                ref1Nombre: document.getElementById('ref1Nombre').value,
+                ref1Tel: document.getElementById('ref1Tel').value,
+                ref2Nombre: document.getElementById('ref2Nombre').value,
+                ref2Tel: document.getElementById('ref2Tel').value,
+                obsInquilino: document.getElementById('obsInquilino').value,
+                fiador: document.getElementById('fiador').value,
+                telFiador: document.getElementById('telFiador').value,
+                ref1FiadorNombre: document.getElementById('ref1FiadorNombre').value,
+                ref1FiadorTel: document.getElementById('ref1FiadorTel').value,
+                ref2FiadorNombre: document.getElementById('ref2FiadorNombre').value,
+                ref2FiadorTel: document.getElementById('ref2FiadorTel').value,
+                obsFiador: document.getElementById('obsFiador').value,
+                canon: parseFloat(document.getElementById('canon').value),
+                deposito: parseFloat(document.getElementById('deposito').value || 0),
+                fechaFirma: document.getElementById('fechaFirma').value,
+                fechaVencimiento: document.getElementById('fechaVencimiento').value,
+                activo: idx >= 0 ? db.contratos[idx].activo : true
+            };
+
+            if(idx >= 0) db.contratos[idx] = c;
+            else db.contratos.push(c);
+
+            saveData();
+            syncToGoogleSheets({ tipo: "contrato", ...c });
+            closeContratoModal();
+        }
+
+        function openRenovacionModal(idx) {
+            document.getElementById('renovarIndex').value = idx;
+            document.getElementById('nuevoCanon').value = db.contratos[idx].canon;
+            let modal = document.getElementById('renovacionModal');
+            if(modal) modal.classList.remove('hidden');
+        }
+
+        function closeRenovacionModal() {
+            let modal = document.getElementById('renovacionModal');
+            if(modal) modal.classList.add('hidden');
+        }
+
+        function ejecutarRenovacion(e) {
+            e.preventDefault();
+            let idx = parseInt(document.getElementById('renovarIndex').value);
+            
+            db.contratos[idx].activo = false;
+            syncToGoogleSheets({ tipo: "contrato", ...db.contratos[idx] });
+
+            let nuevo = JSON.parse(JSON.stringify(db.contratos[idx]));
+            nuevo.id = "CTO-" + Date.now();
+            nuevo.canon = parseFloat(document.getElementById('nuevoCanon').value);
+            nuevo.fechaFirma = document.getElementById('nuevaFechaInicio').value;
+            nuevo.fechaVencimiento = document.getElementById('nuevaFechaVencimiento').value;
+            nuevo.activo = true;
+
+            db.contratos.push(nuevo);
+            saveData();
+            syncToGoogleSheets({ tipo: "contrato", ...nuevo });
+            
+            closeRenovacionModal();
+            alert("Contrato renovado con éxito.");
+        }
+
+        function autoFillPagoInfo() {
+            let idx = document.getElementById('pagoContratoId').value;
+            if(idx === "") return;
+
+            let c = db.contratos[idx];
+            document.getElementById('pagoValor').value = c.canon;
+
+            let pagosContrato = db.pagos.filter(p => p.contratoId === c.id);
+            let fechaInicio;
+
+            if(pagosContrato.length > 0) {
+                let ultPago = pagosContrato[0];
+                let partes = ultPago.concepto.split(" - ");
+                if(partes.length === 2) {
+                    let f = parseDate(partes[1]);
+                    f.setDate(f.getDate() + 1);
+                    fechaInicio = f;
+                } else {
+                    fechaInicio = new Date(c.fechaFirma + "T00:00:00");
+                }
+            } else {
+                fechaInicio = new Date(c.fechaFirma + "T00:00:00");
+            }
+
+            let fechaFin = new Date(fechaInicio);
+            fechaFin.setMonth(fechaFin.getMonth() + 1);
+            fechaFin.setDate(fechaFin.getDate() - 1);
+
+            document.getElementById('pagoConcepto').value = `${formatDate(fechaInicio)} - ${formatDate(fechaFin)}`;
+        }
+
+        function registrarPago(e) {
+            e.preventDefault();
+            let cIdx = document.getElementById('pagoContratoId').value;
+            let val = parseFloat(document.getElementById('pagoValor').value);
+            let con = document.getElementById('pagoConcepto').value;
+            let c = db.contratos[cIdx];
+
+            let pago = {
+                id: "REC-" + Math.floor(1000 + Math.random() * 9000),
+                contratoId: c.id,
+                fecha: formatDate(new Date()),
+                propiedad: c.propiedad,
+                inquilino: c.inquilino,
+                telefono: c.telefono,
+                valor: val,
+                concepto: con
+            };
+
+            db.pagos.unshift(pago);
+            saveData();
+            syncToGoogleSheets({ tipo: "pago", ...pago });
+            let form = document.getElementById('pagoForm');
+            if(form) form.reset();
+            verReciboModal(pago);
+        }
+
+        function verReciboModal(pago) {
+            document.getElementById('vReciboId').innerText = pago.id;
+            document.getElementById('vFecha').innerText = pago.fecha;
+            document.getElementById('vInquilino').innerText = pago.inquilino;
+            document.getElementById('vValor').innerText = pago.valor.toLocaleString();
+            document.getElementById('vValorText').innerText = numeroALetras(pago.valor);
+            document.getElementById('vPropiedad').innerText = pago.propiedad;
+            document.getElementById('vConcepto').innerText = pago.concepto;
+
+            document.getElementById('tempTel').value = pago.telefono || "";
+            document.getElementById('tempReciboId').value = pago.id;
+
+            // Resetear la vista previa de la imagen previa
+            document.getElementById('previewImagenArea').classList.add('hidden');
+            document.getElementById('imageContainer').innerHTML = "";
+
+            let modal = document.getElementById('reciboViewModal');
+            if(modal) modal.classList.remove('hidden');
+        }
+
+        function closeReciboModal() {
+            let modal = document.getElementById('reciboViewModal');
+            if(modal) modal.classList.add('hidden');
+        }
+
+        // NUEVO MÉTODO GARANTIZADO DE CAPTURA Y GENERACIÓN
+        function generarImagenRecibo() {
+            let target = document.getElementById('reciboPrintArea');
+            let tel = document.getElementById('tempTel').value;
+            let reciboId = document.getElementById('tempReciboId').value;
+            let btnGenerar = document.getElementById('btnGenerarImg');
+
+            btnGenerar.innerText = "Procesando...";
+            btnGenerar.disabled = true;
+
+            html2canvas(target, { scale: 2, useCORS: true }).then(canvas => {
+                let imgData = canvas.toDataURL("image/png");
+                
+                let container = document.getElementById('imageContainer');
+                container.innerHTML = `<img src="${imgData}" class="max-h-48 object-contain rounded border shadow" />`;
+
+                let btnDownload = document.getElementById('btnDescargarImg');
+                btnDownload.href = imgData;
+                btnDownload.download = `Recibo_${reciboId}.png`;
+
+                let msg = encodeURIComponent(`Hola, le comparto el comprobante de pago *${reciboId}*. ¡Muchas gracias por su cumplimiento! - Alexander Pérez Ladino`);
+                let btnWpp = document.getElementById('btnWhatsAppDirecto');
+                btnWpp.href = `https://wa.me/57${tel}?text=${msg}`;
+
+                document.getElementById('previewImagenArea').classList.remove('hidden');
+                
+                btnGenerar.innerText = "Convertir a Imagen PNG";
+                btnGenerar.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                alert("Error al procesar la imagen.");
+                btnGenerar.innerText = "Convertir a Imagen PNG";
+                btnGenerar.disabled = false;
+            });
+        }
+
+        function cargarSelectReportesInquilinos() {
+            let sel = document.getElementById('reporteInquilinoId');
+            if(sel) {
+                sel.innerHTML = `<option value="">-- Todos los contratos --</option>` +
+                    db.contratos.map(c => `<option value="${c.id}">${c.propiedad} - ${c.inquilino}</option>`).join('');
+            }
+        }
+
+        function generarReporte() {
+            let totalVal = 0;
+            let pagosFiltrados = [];
+
+            if (tipoReporteActual === 'mes') {
+                let mesSel = document.getElementById('reporteMes').value;
+                let anioSel = document.getElementById('reporteAnio').value;
+
+                pagosFiltrados = db.pagos.filter(p => {
+                    let partesFecha = p.fecha.split('/');
+                    if(partesFecha.length === 3) {
+                        return partesFecha[1] === mesSel && partesFecha[2] === anioSel;
+                    }
+                    return false;
+                });
+            } else {
+                let inqId = document.getElementById('reporteInquilinoId').value;
+                if(inqId === "") {
+                    pagosFiltrados = db.pagos;
+                } else {
+                    let contratoObj = db.contratos.find(c => c.id === inqId);
+                    if(contratoObj) {
+                        pagosFiltrados = db.pagos.filter(p => p.contratoId === inqId || p.propiedad === contratoObj.propiedad);
+                    } else {
+                        pagosFiltrados = [];
+                    }
+                }
+            }
+
+            totalVal = pagosFiltrados.reduce((sum, p) => sum + p.valor, 0);
+
+            document.getElementById('reporteTotalValor').innerText = "$" + totalVal.toLocaleString();
+            document.getElementById('reporteCantRecibos').innerText = `${pagosFiltrados.length} Recibos`;
+
+            let listaDiv = document.getElementById('reporteListaResultados');
+            if(listaDiv) {
+                if(pagosFiltrados.length === 0) {
+                    listaDiv.innerHTML = `<p class="text-xs text-gray-400 italic text-center py-4">No hay pagos registrados para este filtro.</p>`;
+                } else {
+                    listaDiv.innerHTML = pagosFiltrados.map(p => `
+                        <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border text-xs">
+                            <div>
+                                <p class="font-bold text-gray-800">${p.propiedad} - ${p.inquilino}</p>
+                                <p class="text-[10px] text-gray-500">Recibo: ${p.id} | Fecha: ${p.fecha} | ${p.concepto}</p>
+                            </div>
+                            <span class="font-bold text-green-700">$${p.valor.toLocaleString()}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+        function renderAll() {
+            let contratosActivos = db.contratos.filter(c => c.activo);
+            
+            let statC = document.getElementById('statContratos');
+            if(statC) statC.innerText = contratosActivos.length;
+
+            let totalRecaudado = db.pagos.reduce((sum, p) => sum + p.valor, 0);
+            let statR = document.getElementById('statRecaudado');
+            if(statR) statR.innerText = "$" + totalRecaudado.toLocaleString();
+
+            let contratosFiltrados = db.contratos.filter(c => {
+                if (filtroContratos === 'activos') return c.activo;
+                if (filtroContratos === 'inactivos') return !c.activo;
+                return true;
+            });
+
+            let cList = document.getElementById('contratosList');
+            if(cList) {
+                if (contratosFiltrados.length === 0) {
+                    cList.innerHTML = `<p class="text-xs text-gray-400 italic text-center py-6">No hay contratos registrados en esta categoría.</p>`;
+                } else {
+                    cList.innerHTML = contratosFiltrados.map(c => {
+                        let originalIndex = db.contratos.findIndex(item => item.id === c.id);
+                        return `
+                            <div class="bg-white p-4 rounded-xl shadow border border-gray-100 ${!c.activo ? 'opacity-60 bg-gray-50' : ''}">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded ${c.activo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">
+                                            ${c.activo ? 'VIGENTE' : 'INACTIVO'}
+                                        </span>
+                                        <h3 class="font-bold text-gray-900 text-sm mt-1">${c.propiedad}</h3>
+                                        <p class="text-xs text-gray-600">Inquilino: <span class="font-semibold text-gray-800">${c.inquilino}</span> (${c.telefono})</p>
+                                    </div>
+                                    <span class="text-sm font-bold text-blue-900">$${c.canon.toLocaleString()}</span>
+                                </div>
+                                <div class="text-[11px] text-gray-500 space-y-0.5 border-t border-b py-2 my-2">
+                                    <p><strong>Fiador:</strong> ${c.fiador || 'N/A'} (${c.telFiador || 'N/A'})</p>
+                                    <p><strong>Depósito:</strong> $${(c.deposito || 0).toLocaleString()} | <strong>Vigencia:</strong> ${c.fechaFirma} al ${c.fechaVencimiento}</p>
+                                </div>
+                                <div class="flex justify-end gap-2 pt-1">
+                                    ${c.activo ? `<button onclick="openRenovacionModal(${originalIndex})" class="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded font-semibold border border-amber-200"><i class="fa-solid fa-rotate mr-1"></i> Renovación</button>` : ''}
+                                    <button onclick="openContratoModal(${originalIndex})" class="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded font-semibold"><i class="fa-solid fa-pen mr-1"></i> Editar</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            let pSelect = document.getElementById('pagoContratoId');
+            if(pSelect) {
+                pSelect.innerHTML = `<option value="">-- Seleccionar Inmueble / Inquilino --</option>` +
+                    db.contratos.map((c, i) => c.activo ? `<option value="${i}">${c.propiedad} - ${c.inquilino}</option>` : '').join('');
+            }
+
+            let rList = document.getElementById('recibosList');
+            if(rList) {
+                rList.innerHTML = db.pagos.map(p => `
+                    <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border text-xs">
+                        <div>
+                            <p class="font-bold text-gray-800">${p.propiedad} - ${p.inquilino}</p>
+                            <p class="text-[10px] text-gray-500">${p.id} | ${p.fecha} | ${p.concepto}</p>
+                        </div>
+                        <div class="text-right flex items-center gap-3">
+                            <span class="font-bold text-green-700">$${p.valor.toLocaleString()}</span>
+                            <button onclick='verReciboModal(${JSON.stringify(p)})' class="text-blue-900 text-sm"><i class="fa-solid fa-eye"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            let aContainer = document.getElementById('alertasContainer');
+            if(aContainer) {
+                let hoy = new Date();
+                let alertasHtml = "";
+
+                contratosActivos.forEach(c => {
+                    let pagosC = db.pagos.filter(p => p.contratoId === c.id);
+                    let proximoCobro;
+
+                    if(pagosC.length > 0) {
+                        let ultConcepto = pagosC[0].concepto;
+                        let partes = ultConcepto.split(" - ");
+                        if(partes.length === 2) {
+                            let fHasta = parseDate(partes[1]);
+                            proximoCobro = new Date(fHasta);
+                            proximoCobro.setDate(proximoCobro.getDate() + 1);
+                        }
+                    } else {
+                        proximoCobro = new Date(c.fechaFirma + "T00:00:00");
+                    }
+
+                    if(proximoCobro) {
+                        let diffTime = proximoCobro - hoy;
+                        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                        if(diffDays <= 5) {
+                            let msgWhatsApp = `Hola ${c.inquilino}, le recordamos cordialmente la fecha de pago del canon de arriendo correspondiente a ${c.propiedad}. ¡Muchas gracias! - Alexander Pérez Ladino`;
+                            alertasHtml += `
+                                <div class="flex justify-between items-center p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs">
+                                    <div>
+                                        <p class="font-bold text-amber-900">${c.propiedad} (${c.inquilino})</p>
+                                        <p class="text-amber-700 text-[10px]">Próximo cobro: ${formatDate(proximoCobro)} ${diffDays < 0 ? `(Vencido hace ${Math.abs(diffDays)} días)` : `(En ${diffDays} días)`}</p>
+                                    </div>
+                                    <a href="https://wa.me/57${c.telefono}?text=${encodeURIComponent(msgWhatsApp)}" target="_blank" class="bg-green-600 text-white px-2 py-1 rounded font-semibold text-[10px] flex items-center gap-1">
+                                        <i class="fa-brands fa-whatsapp"></i> Recordar
+                                    </a>
+                                </div>
+                            `;
+                        }
+                    }
+                });
+
+                aContainer.innerHTML = alertasHtml || `<p class="text-xs text-gray-400 italic">No hay cobros pendientes ni al vencimiento.</p>`;
+            }
+        }
+
+        function formatDate(date) {
+            let d = new Date(date);
+            let day = String(d.getDate()).padStart(2, '0');
+            let month = String(d.getMonth() + 1).padStart(2, '0');
+            let year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function parseDate(str) {
+            let p = str.split('/');
+            return new Date(p[2], p[1] - 1, p[0]);
+        }
+
+        function exportToExcel() {
+            let csv = "ID,Propiedad,Inquilino,Telefono,Canon,Estado\n";
+            db.contratos.forEach(c => {
+                csv += `"${c.id}","${c.propiedad}","${c.inquilino}","${c.telefono}",${c.canon},"${c.activo ? 'Vigente' : 'Inactivo'}"\n`;
+            });
+            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `Arriendos_Reporte_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function numeroALetras(num) {
+            if (num === 0) return "CERO PESOS M/CTE";
+            
+            function Unidades(n){
+                switch(n){
+                    case 1: return "UN"; case 2: return "DOS"; case 3: return "TRES"; case 4: return "CUATRO";
+                    case 5: return "CINCO"; case 6: return "SEIS"; case 7: return "SIETE"; case 8: return "OCHO"; case 9: return "NUEVE";
+                }
+                return "";
+            }
+            function Decenas(n){
+                let decena = Math.floor(n/10);
+                let unidad = n - (decena * 10);
+                switch(decena){
+                    case 1:
+                        switch(unidad){
+                            case 0: return "DIEZ"; case 1: return "ONCE"; case 2: return "DOCE"; case 3: return "TRECE";
+                            case 4: return "CATORCE"; case 5: return "QUINCE";
+                            default: return "DIECI" + Unidades(unidad);
+                        }
+                    case 2:
+                        switch(unidad){
+                            case 0: return "VEINTE";
+                            default: return "VEINTI" + Unidades(unidad);
+                        }
+                    case 3: return DecenasY("TREINTA", unidad);
+                    case 4: return DecenasY("CUARENTA", unidad);
+                    case 5: return DecenasY("CINCUENTA", unidad);
+                    case 6: return DecenasY("SESENTA", unidad);
+                    case 7: return DecenasY("SETENTA", unidad);
+                    case 8: return DecenasY("OCHENTA", unidad);
+                    case 9: return DecenasY("NOVENTA", unidad);
+                    case 0: return Unidades(unidad);
+                }
+            }
+            function DecenasY(strSin, numUnidades) {
+                if (numUnidades > 0) return strSin + " Y " + Unidades(numUnidades);
+                return strSin;
+            }
+            function Centenas(n) {
+                let centenas = Math.floor(n / 100);
+                let decenas = n - (centenas * 100);
+                switch(centenas) {
+                    case 1:
+                        if (decenas > 0) return "CIENTO " + Decenas(decenas);
+                        return "CIEN";
+                    case 2: return "DOSCIENTOS " + Decenas(decenas);
+                    case 3: return "TRESCIENTOS " + Decenas(decenas);
+                    case 4: return "CUATROCIENTOS " + Decenas(decenas);
+                    case 5: return "QUINIENTOS " + Decenas(decenas);
+                    case 6: return "SEISCIENTOS " + Decenas(decenas);
+                    case 7: return "SETECIENTOS " + Decenas(decenas);
+                    case 8: return "OCHOCIENTOS " + Decenas(decenas);
+                    case 9: return "NOVECIENTOS " + Decenas(decenas);
+                }
+                return Decenas(decenas);
+            }
+            function Seccion(n, divisor, strSingular, strPlural) {
+                let cientos = Math.floor(n / divisor);
+                let resto = n - (cientos * divisor);
+                let letras = "";
+                if (cientos > 0) {
+                    if (cientos > 1) letras = Centenas(cientos) + " " + strPlural;
+                    else letras = strSingular;
+                }
+                if (resto > 0) letras += "";
+                return letras;
+            }
+            function Miles(n) {
+                let divisor = 1000;
+                let cientos = Math.floor(n / divisor);
+                let resto = n - (cientos * divisor);
+                let strMiles = Seccion(n, divisor, "UN MIL", "MIL");
+                let strCentenas = Centenas(resto);
+                if(strMiles === "") return strCentenas;
+                return strMiles + " " + strCentenas;
+            }
+            function Millones(n) {
+                let divisor = 1000000;
+                let cientos = Math.floor(n / divisor);
+                let resto = n - (cientos * divisor);
+                let strMillones = Seccion(n, divisor, "UN MILLON", "MILLONES");
+                let strMiles = Miles(resto);
+                if(strMillones === "") return strMiles;
+                return strMillones + " " + strMiles;
+            }
+
+            return (Millones(num) + " PESOS M/CTE").trim().replace(/\s+/g, ' ');
+        }
+    </script>
+
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js")
+            .catch(error => console.error("No se pudo registrar el modo offline:", error));
+        });
+      }
+    </script>
+
+</body>
+</html>
