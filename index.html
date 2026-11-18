@@ -920,51 +920,136 @@
                         </div>
                     </div>
                 `).join('');
-            }
+        }
 
             let aContainer = document.getElementById('alertasContainer');
-            if(aContainer) {
+            if (aContainer) {
                 let hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
                 let alertasHtml = "";
 
                 contratosActivos.forEach(c => {
-                    let pagosC = db.pagos.filter(p => p.contratoId === c.id);
-                    let proximoCobro;
+                    // 1. Limpiar fecha de firma (funciona con YYYY-MM-DD y con formato ISO de Google Sheets)
+                    let fechaBaseStr = String(c.fechaFirma).split('T').shift();
+                    let fInicioContrato = new Date(fechaBaseStr + "T00:00:00");
+                    if (isNaN(fInicioContrato.getTime())) return;
 
-                    if(pagosC.length > 0) {
-                        let ultConcepto = pagosC[0].concepto;
-                        let partes = ultConcepto.split(" - ");
-                        if(partes.length === 2) {
-                            let fHasta = parseDate(partes[1]);
-                            proximoCobro = new Date(fHasta);
-                            proximoCobro.setDate(proximoCobro.getDate() + 1);
+                    // 2. Buscar todos los pagos de este contrato (por ID o por propiedad e inquilino)
+                    let pagosC = db.pagos.filter(p =>
+                        (p.contratoId && p.contratoId === c.id) ||
+                        (p.propiedad && p.propiedad.trim() === c.propiedad.trim() && p.inquilino && p.inquilino.trim() === c.inquilino.trim())
+                    );
+
+                    // Determinar desde qué fecha debe empezar a pagar según el último período cubierto
+                    let fechaEvaluar = new Date(fInicioContrato);
+                    if (pagosC.length > 0) {
+                        let maxFechaHasta = null;
+                        pagosC.forEach(p => {
+                            if (p.concepto && p.concepto.includes(" - ")) {
+                                let partes = p.concepto.split(" - ");
+                                let strHasta = partes.pop().trim();
+                                let fHasta = parseDate(strHasta);
+                                if (!isNaN(fHasta.getTime()) && (!maxFechaHasta || fHasta > maxFechaHasta)) {
+                                    maxFechaHasta = fHasta;
+                                }
+                            }
+                        });
+                        if (maxFechaHasta) {
+                            fechaEvaluar = new Date(maxFechaHasta);
+                            fechaEvaluar.setDate(fechaEvaluar.getDate() + 1);
                         }
-                    } else {
-                        proximoCobro = new Date(c.fechaFirma + "T00:00:00");
                     }
 
-                    if(proximoCobro) {
-                        let diffTime = proximoCobro - hoy;
-                        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    // 3. Evaluar mes a mes cuántas cuotas vencidas tiene hasta hoy
+                    let cuotasMora = [];
+                    let diasMoraAcumulados = 0;
+                    let totalDeuda = 0;
+                    let avisoEnPlazo = null;
 
-                        if(diffDays <= 5) {
-                            let msgWhatsApp = `Hola ${c.inquilino}, le recordamos cordialmente la fecha de pago del canon de arriendo correspondiente a ${c.propiedad}. ¡Muchas gracias! - Alexander Pérez Ladino`;
-                            alertasHtml += `
-                                <div class="flex justify-between items-center p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs">
-                                    <div>
-                                        <p class="font-bold text-amber-900">${c.propiedad} (${c.inquilino})</p>
-                                        <p class="text-amber-700 text-[10px]">Próximo cobro: ${formatDate(proximoCobro)} ${diffDays < 0 ? `(Vencido hace ${Math.abs(diffDays)} días)` : `(En ${diffDays} días)`}</p>
-                                    </div>
-                                    <a href="https://wa.me/57${c.telefono}?text=${encodeURIComponent(msgWhatsApp)}" target="_blank" class="bg-green-600 text-white px-2 py-1 rounded font-semibold text-[10px] flex items-center gap-1">
-                                        <i class="fa-brands fa-whatsapp"></i> Recordar
-                                    </a>
-                                </div>
-                            `;
+                    let cursor = new Date(fechaEvaluar);
+                    let seguridad = 0;
+
+                    while (cursor <= hoy && seguridad < 60) {
+                        seguridad++;
+                        // Período del mes (ej. 20 Feb al 19 Mar)
+                        let finPeriodo = new Date(cursor);
+                        finPeriodo.setMonth(finPeriodo.getMonth() + 1);
+                        finPeriodo.setDate(finPeriodo.getDate() - 1);
+
+                        // Plazo máximo: fecha de corte + 5 días (ej. 20 + 5 = 25)
+                        let fechaLimite = new Date(cursor);
+                        fechaLimite.setDate(fechaLimite.getDate() + 5);
+
+                        if (hoy > fechaLimite) {
+                            // A partir del 6to día (ej. día 26) ya se configura retardo
+                            let diasRetardo = Math.floor((hoy - fechaLimite) / (1000 * 60 * 60 * 24));
+                            diasMoraAcumulados += diasRetardo;
+                            totalDeuda += Number(c.canon || 0);
+                            cuotasMora.push({
+                                periodo: `${formatDate(cursor)} - ${formatDate(finPeriodo)}`,
+                                dias: diasRetardo
+                            });
+                        } else {
+                            // Está dentro de los 5 días de gracia (ej. entre el 20 y el 25)
+                            let diasRestantes = Math.floor((fechaLimite - hoy) / (1000 * 60 * 60 * 24));
+                            avisoEnPlazo = {
+                                periodo: `${formatDate(cursor)} - ${formatDate(finPeriodo)}`,
+                                limite: formatDate(fechaLimite),
+                                restantes: diasRestantes
+                            };
                         }
+
+                        // Avanzar al siguiente mes respetando el día original de firma
+                        let siguienteMes = cursor.getMonth() + 1;
+                        cursor = new Date(cursor.getFullYear(), siguienteMes, fInicioContrato.getDate());
+                    }
+
+                    // 4. Construir la tarjeta de alerta si tiene cuotas en mora
+                    if (cuotasMora.length > 0) {
+                        let textoCuotas = cuotasMora.length === 1 ? "1 cuota vencida" : `${cuotasMora.length} cuotas vencidas`;
+                        let primerPeriodo = cuotasMora.at(0).periodo;
+                        let msgWhatsApp = `Hola ${c.inquilino}, le informamos que presenta ${textoCuotas} de arriendo en ${c.propiedad} (${diasMoraAcumulados} días de mora acumulados) por un total de $${totalDeuda.toLocaleString()}. Agradecemos ponerse al día. - Alexander Pérez Ladino`;
+
+                        alertasHtml += `
+                            <div class="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-200 text-xs shadow-sm">
+                                <div class="space-y-0.5 pr-2">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Mora</span>
+                                        <p class="font-bold text-red-900">${c.propiedad} (${c.inquilino})</p>
+                                    </div>
+                                    <p class="text-red-800 font-semibold text-[11px]">
+                                        Debe: ${textoCuotas} ($${totalDeuda.toLocaleString()}) • ${diasMoraAcumulados} días de mora acumulados
+                                    </p>
+                                    <p class="text-red-600 text-[10px]">
+                                        Desde período: ${primerPeriodo}
+                                    </p>
+                                </div>
+                                <a href="https://wa.me/57${c.telefono}?text=${encodeURIComponent(msgWhatsApp)}" target="_blank" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg font-semibold text-[10px] flex items-center gap-1 shrink-0 shadow">
+                                    <i class="fa-brands fa-whatsapp"></i> Cobrar
+                                </a>
+                            </div>
+                        `;
+                    } else if (avisoEnPlazo) {
+                        // Aviso preventivo mientras transcurren los 5 días de gracia
+                        let msgWhatsApp = `Hola ${c.inquilino}, le recordamos cordialmente que el plazo para el pago de arriendo de ${c.propiedad} (${avisoEnPlazo.periodo}) vence el ${avisoEnPlazo.limite}. ¡Muchas gracias! - Alexander Pérez Ladino`;
+
+                        alertasHtml += `
+                            <div class="flex justify-between items-center p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-xs">
+                                <div class="pr-2">
+                                    <p class="font-bold text-amber-900">${c.propiedad} (${c.inquilino})</p>
+                                    <p class="text-amber-700 text-[10px]">
+                                        En plazo de pago (Vence el ${avisoEnPlazo.limite} - ${avisoEnPlazo.restantes === 0 ? '¡Último día!' : `quedan ${avisoEnPlazo.restantes} días`})
+                                    </p>
+                                </div>
+                                <a href="https://wa.me/57${c.telefono}?text=${encodeURIComponent(msgWhatsApp)}" target="_blank" class="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg font-semibold text-[10px] flex items-center gap-1 shrink-0">
+                                    <i class="fa-brands fa-whatsapp"></i> Recordar
+                                </a>
+                            </div>
+                        `;
                     }
                 });
 
-                aContainer.innerHTML = alertasHtml || `<p class="text-xs text-gray-400 italic">No hay cobros pendientes ni al vencimiento.</p>`;
+                aContainer.innerHTML = alertasHtml || `<p class="text-xs text-gray-400 italic">No hay cobros pendientes ni inquilinos en mora.</p>`;
             }
         }
 
@@ -977,9 +1062,12 @@
         }
 
         function parseDate(str) {
+            if (!str) return new Date(NaN);
+            if (str.includes('T')) return new Date(str.split('T').shift() + "T00:00:00");
             let p = str.split('/');
-            return new Date(p[2], p[1] - 1, p[0]);
+            return new Date(Number(p.at(2)), Number(p.at(1)) - 1, Number(p.at(0)));
         }
+
 
         function exportToExcel() {
             let csv = "ID,Propiedad,Inquilino,Telefono,Canon,Estado\n";
