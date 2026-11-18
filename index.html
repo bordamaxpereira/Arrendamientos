@@ -4,15 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AdminArriendos - Alexander Pérez Ladino</title>
-    <link rel="icon" type="image/x-icon" href="icono.png">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e3a8a">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="AdminArriendos">
-    <script src="https://tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cloudflare.com">
-    <script src="https://cloudflare.com"></script>
+    <link rel="icon" type="image/x-icon" href="icono.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Librería html2canvas para la captura de pantalla del recibo -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @media print {
             body * { visibility: hidden; }
@@ -138,11 +134,259 @@
                                 <input type="number" id="pagoValor" required class="w-full p-2 border border-gray-300 rounded-lg text-sm">
                             </div>
                             <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Período de Pago</label>
+                                <input type="text" id="pagoConcepto" required placeholder="DD/MM/AAAA - DD/MM/AAAA" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                            </div>
+                        </div>
+                        <p class="text-xs text-blue-800">Los abonos y excedentes se aplican automáticamente a los meses más antiguos pendientes. El período sugerido se calcula desde el inicio del contrato.</p>
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-semibold shadow flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-file-invoice-dollar"></i> Generar Recibo de Pago
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+                    <h3 class="text-sm font-bold text-gray-800 mb-3">Historial de Recibos Generados</h3>
+                    <div id="recibosList" class="space-y-2"></div>
+                </div>
+            </section>
+
+            <!-- REPORTES DE PAGOS -->
+            <section id="tab-reportes" class="hidden space-y-4">
+                <h2 class="text-lg font-bold text-gray-800">Reportes y Estadísticas de Pagos</h2>
+                
+                <div class="bg-white p-4 rounded-xl shadow border border-gray-100 space-y-3">
+                    <div class="flex border-b pb-2 gap-2">
+                        <button onclick="cambiarSubReporte('mes')" id="btnSubMes" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-900 text-white">Por Mes</button>
+                        <button onclick="cambiarSubReporte('inquilino')" id="btnSubInquilino" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-200 text-gray-700">Por Inquilino</button>
+                    </div>
+
+                    <!-- Filtro Por Mes -->
+                    <div id="filtroMesContainer" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Seleccionar Mes</label>
+                                <select id="reporteMes" onchange="generarReporte()" class="w-full p-2 border rounded-lg text-xs bg-white">
+                                    <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                                    <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                                    <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                                    <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Año</label>
+                                <input type="number" id="reporteAnio" value="2026" onchange="generarReporte()" class="w-full p-2 border rounded-lg text-xs">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtro Por Inquilino -->
+                    <div id="filtroInquilinoContainer" class="space-y-3 hidden">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Seleccionar Inmueble / Inquilino</label>
+                            <select id="reporteInquilinoId" onchange="generarReporte()" class="w-full p-2 border rounded-lg text-xs bg-white">
+                                <option value="">-- Todos los contratos --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Resultado del Reporte -->
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 flex justify-between items-center">
+                        <div>
+                            <p class="text-[11px] text-blue-800 font-semibold">Total Recaudado en este filtro:</p>
+                            <h3 id="reporteTotalValor" class="text-xl font-bold text-blue-900">$0</h3>
+                        </div>
+                        <span id="reporteCantRecibos" class="bg-blue-900 text-white text-xs px-2.5 py-1 rounded-full font-bold">0 Recibos</span>
+                    </div>
+
+                    <div id="reporteListaResultados" class="space-y-2 pt-2"></div>
+                </div>
+            </section>
+        </main>
+
+        <nav class="bg-white border-t fixed bottom-0 left-0 right-0 z-30 flex justify-around py-3 shadow-lg">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="text-blue-900 flex flex-col items-center text-xs font-semibold">
+                <i class="fa-solid fa-chart-pie text-lg"></i> Resumen
+            </button>
+            <button onclick="switchTab('contratos')" id="nav-contratos" class="text-gray-400 flex flex-col items-center text-xs font-semibold">
+                <i class="fa-solid fa-file-contract text-lg"></i> Contratos
+            </button>
+            <button onclick="switchTab('pagos')" id="nav-pagos" class="text-gray-400 flex flex-col items-center text-xs font-semibold">
+                <i class="fa-solid fa-receipt text-lg"></i> Pagos
+            </button>
+            <button onclick="switchTab('reportes')" id="nav-reportes" class="text-gray-400 flex flex-col items-center text-xs font-semibold">
+                <i class="fa-solid fa-chart-column text-lg"></i> Reportes
+            </button>
+        </nav>
+    </div>
+
+    <!-- MODAL REGISTRO CONTRATO -->
+    <div id="contratoModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+            <h3 id="modalTitle" class="text-base font-bold text-blue-900">Registrar Nuevo Contrato</h3>
+            <form id="contratoForm" onsubmit="guardarContrato(event)" class="space-y-4">
+                <input type="hidden" id="editIndex" value="-1">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Nombre / Identificación del Inmueble</label>
+                    <input type="text" id="propiedad" required placeholder="Ej: Apto 401 - Edificio Los Alpes" class="w-full p-2 border rounded-lg text-sm">
+                </div>
+
+                <!-- SECCIÓN INQUILINO -->
+                <div class="border border-gray-200 rounded-xl p-3 bg-gray-50/50 space-y-2">
+                    <span class="text-xs font-bold text-blue-900 block"><i class="fa-solid fa-user mr-1"></i> Información del Inquilino</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="inquilino" required placeholder="Nombre Completo Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="telefono" required placeholder="Teléfono / WhatsApp Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="ref1Nombre" placeholder="Nombre Ref. 1 Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="ref1Tel" placeholder="Teléfono Ref. 1 Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="ref2Nombre" placeholder="Nombre Ref. 2 Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="ref2Tel" placeholder="Teléfono Ref. 2 Inquilino" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <textarea id="obsInquilino" rows="2" placeholder="Observaciones Inquilino..." class="w-full p-2 border rounded-lg text-xs"></textarea>
+                </div>
+
+                <!-- SECCIÓN DEUDOR SOLIDARIO -->
+                <div class="border border-blue-200 rounded-xl p-3 bg-blue-50/30 space-y-2">
+                    <span class="text-xs font-bold text-blue-900 block"><i class="fa-solid fa-user-shield mr-1"></i> Información Deudor Solidario (Fiador)</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="fiador" placeholder="Nombre Deudor Solidario" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="telFiador" placeholder="Teléfono Deudor Solidario" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="ref1FiadorNombre" placeholder="Nombre Ref. 1 Deudor" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="ref1FiadorTel" placeholder="Teléfono Ref. 1 Deudor" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="ref2FiadorNombre" placeholder="Nombre Ref. 2 Deudor" class="w-full p-2 border rounded-lg text-xs">
+                        <input type="tel" id="ref2FiadorTel" placeholder="Teléfono Ref. 2 Deudor" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <textarea id="obsFiador" rows="2" placeholder="Observaciones Deudor Solidario..." class="w-full p-2 border rounded-lg text-xs"></textarea>
+                </div>
+
+                <!-- SECCIÓN FINANCIERA -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Canon Mensual ($)</label>
+                        <input type="number" id="canon" required placeholder="1200000" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Depósito Garantía ($)</label>
+                        <input type="number" id="deposito" placeholder="Valor depósito servicios/daños" class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Fecha Inicio Contrato</label>
+                        <input type="date" id="fechaFirma" required class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Fecha Vencimiento</label>
+                        <input type="date" id="fechaVencimiento" required class="w-full p-2 border rounded-lg text-xs">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeContratoModal()" class="bg-gray-200 px-4 py-2 rounded-lg text-xs font-semibold">Cancelar</button>
+                    <button type="submit" class="bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-semibold">Guardar Contrato</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL RENOVACIÓN -->
+    <div id="renovacionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 class="text-base font-bold text-blue-900">Renovación de Contrato</h3>
+            <p class="text-xs text-gray-600">El contrato actual pasará a estado <strong>Inactivo</strong> y se creará uno nuevo en estado <strong>Activo</strong>.</p>
+            <form onsubmit="ejecutarRenovacion(event)" class="space-y-3">
+                <input type="hidden" id="renovarIndex">
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Nuevo Canon de Arriendo ($)</label>
+                    <input type="number" id="nuevoCanon" required class="w-full p-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Nueva Fecha de Inicio</label>
+                    <input type="date" id="nuevaFechaInicio" required class="w-full p-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Nueva Fecha de Vencimiento</label>
+                    <input type="date" id="nuevaFechaVencimiento" required class="w-full p-2 border rounded-lg text-sm">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeRenovacionModal()" class="bg-gray-200 px-4 py-2 rounded-lg text-xs font-semibold">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-semibold">Confirmar Renovación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL VISTA PREVIA RECIBO FORMAL -->
+    <div id="reciboViewModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+            <div id="reciboPrintArea" class="p-6 border border-gray-300 rounded-xl bg-white space-y-4">
+                <div class="text-center border-b pb-3">
+                    <h2 class="text-lg font-bold text-blue-900 tracking-wide">ALEXANDER PÉREZ LADINO</h2>
+                    <p class="text-xs font-semibold text-gray-600">ADMINISTRACIÓN Y CONTROL DE INMUEBLES DE TERCEROS</p>
+                    <p class="text-xs text-gray-500">Celular: 3001119396</p>
+                    <span id="vReciboId" class="inline-block mt-2 bg-blue-50 text-blue-900 text-xs font-bold px-3 py-1 rounded-full border border-blue-200"></span>
+                </div>
+                <div class="text-xs space-y-2">
+                    <p><strong>Fecha de Emisión:</strong> <span id="vFecha"></span></p>
+                    <p><strong>Recibí de:</strong> <span id="vInquilino"></span></p>
+                    <p><strong>La Suma de:</strong> <span id="vValorText" class="font-bold text-green-700"></span> ($<span id="vValor"></span>)</p>
+                    <p><strong>Por Concepto de:</strong> Arriendo inmueble <span id="vPropiedad" class="font-bold"></span></p>
+                    <p><strong>Período Correspondiente:</strong> <span id="vConcepto" class="font-bold text-blue-900"></span></p>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg border text-[11px] text-gray-600 italic text-center">
+                    "Recibí conforme el pago del período arriba estipulado. Este recibo no invalida cobros por conceptos o servicios adicionales pendientes."
+                </div>
+                <div class="pt-6 flex justify-between items-end text-xs">
+                    <div>
+                        <p class="font-bold text-gray-800">___________________________</p>
+                        <p class="text-gray-500 font-semibold">Firma Administrador</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-gray-400">Comprobante Digital Oficial</p>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" id="tempTel" />
+            <input type="hidden" id="tempReciboId" />
+
+            <!-- VISTA Y CONTENEDOR DE LA IMAGEN GENERADA -->
+            <div id="previewImagenArea" class="hidden border-2 border-emerald-500 rounded-xl p-3 bg-emerald-50 space-y-2 text-center">
+                <p class="text-xs font-bold text-emerald-900"><i class="fa-solid fa-circle-check mr-1"></i> ¡Imagen del Recibo Lista!</p>
+                <div id="imageContainer" class="flex justify-center overflow-hidden max-h-48 rounded border"></div>
+                <div class="flex justify-center gap-2 pt-1">
+                    <a id="btnDescargarImg" download="" class="bg-blue-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow">
+                        <i class="fa-solid fa-download"></i> Descargar PNG
+                    </a>
+                    <a id="btnWhatsAppDirecto" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow">
+                        <i class="fa-brands fa-whatsapp"></i> Abrir WhatsApp
+                    </a>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap justify-end gap-2">
+                <button onclick="closeReciboModal()" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs font-semibold">Cerrar</button>
+                <button onclick="window.print()" class="bg-blue-900 text-white px-3 py-2 rounded-lg text-xs font-semibold"><i class="fa-solid fa-file-pdf mr-1"></i> Imprimir</button>
+                <button onclick="generarImagenRecibo()" id="btnGenerarImg" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 shadow"><i class="fa-solid fa-image"></i> Convertir a Imagen PNG</button>
+            </div>
+        </div>
+    </div>
+
     <!-- LÓGICA -->
     <script>
         let enteredPin = "";
         const correctPin = "6646";
-        const GOOGLE_SCRIPT_URL = "https://google.com";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxy53KKrYGs9CFXG1eFdkU3HpQ9ocHPT8IpSnSQ49yQUwy9DyXBFftrVDmYI5APYj6pPA/exec";
         let filtroContratos = 'activos';
         let tipoReporteActual = 'mes';
 
@@ -241,7 +485,7 @@
                 })
                 .catch(err => {
                     console.log("Modo offline o CORS:", err);
-                    actualizarEstadoSync('ok');
+                    actualizarEstadoSync('error');
                 });
         }
 
@@ -321,7 +565,7 @@
             let modal = document.getElementById('contratoModal');
             if(modal) modal.classList.remove('hidden');
             if(idx >= 0) {
-                let c = db.contratos.at(idx);
+                let c = db.contratos[idx];
                 document.getElementById('editIndex').value = idx;
                 document.getElementById('modalTitle').innerText = "Editar Contrato";
                 document.getElementById('propiedad').value = c.propiedad;
@@ -341,8 +585,8 @@
                 document.getElementById('obsFiador').value = c.obsFiador || "";
                 document.getElementById('canon').value = c.canon;
                 document.getElementById('deposito').value = c.deposito || 0;
-                document.getElementById('fechaFirma').value = String(c.fechaFirma).split('T').shift();
-                document.getElementById('fechaVencimiento').value = String(c.fechaVencimiento).split('T').shift();
+                document.getElementById('fechaFirma').value = c.fechaFirma;
+                document.getElementById('fechaVencimiento').value = c.fechaVencimiento;
             } else {
                 document.getElementById('editIndex').value = -1;
                 document.getElementById('modalTitle').innerText = "Nuevo Contrato";
@@ -360,137 +604,110 @@
             e.preventDefault();
             let idx = parseInt(document.getElementById('editIndex').value);
             let c = {
-                id: idx >= 0 ? db.contratos.at(idx).id : "CTO-" + Date.now(),
-        function obtenerPagosDeContrato(c) {
-            let lista = db.pagos.filter(p =>
-                (p.contratoId && p.contratoId === c.id) ||
-                (p.propiedad && p.propiedad.trim().toLowerCase() === c.propiedad.trim().toLowerCase() &&
-                 p.inquilino && p.inquilino.trim().toLowerCase() === c.inquilino.trim().toLowerCase())
-            );
-            return lista.sort((a, b) => extraerFinPeriodo(b.concepto) - extraerFinPeriodo(a.concepto));
+                id: idx >= 0 ? db.contratos[idx].id : "CTO-" + Date.now(),
+                propiedad: document.getElementById('propiedad').value,
+                inquilino: document.getElementById('inquilino').value,
+                telefono: document.getElementById('telefono').value,
+                ref1Nombre: document.getElementById('ref1Nombre').value,
+                ref1Tel: document.getElementById('ref1Tel').value,
+                ref2Nombre: document.getElementById('ref2Nombre').value,
+                ref2Tel: document.getElementById('ref2Tel').value,
+                obsInquilino: document.getElementById('obsInquilino').value,
+                fiador: document.getElementById('fiador').value,
+                telFiador: document.getElementById('telFiador').value,
+                ref1FiadorNombre: document.getElementById('ref1FiadorNombre').value,
+                ref1FiadorTel: document.getElementById('ref1FiadorTel').value,
+                ref2FiadorNombre: document.getElementById('ref2FiadorNombre').value,
+                ref2FiadorTel: document.getElementById('ref2FiadorTel').value,
+                obsFiador: document.getElementById('obsFiador').value,
+                canon: parseFloat(document.getElementById('canon').value),
+                deposito: parseFloat(document.getElementById('deposito').value || 0),
+                fechaFirma: document.getElementById('fechaFirma').value,
+                fechaVencimiento: document.getElementById('fechaVencimiento').value,
+                activo: idx >= 0 ? db.contratos[idx].activo : true
+            };
+
+            if(idx >= 0) db.contratos[idx] = c;
+            else db.contratos.push(c);
+
+            saveData();
+            syncToGoogleSheets({ tipo: "contrato", ...c });
+            closeContratoModal();
         }
 
-        function extraerFinPeriodo(concepto) {
-            if (!concepto || !concepto.includes(" - ")) return new Date(0);
-            let partes = concepto.split(" - ");
-            return parseDate(partes.pop().trim());
+        function openRenovacionModal(idx) {
+            document.getElementById('renovarIndex').value = idx;
+            document.getElementById('nuevoCanon').value = db.contratos[idx].canon;
+            let modal = document.getElementById('renovacionModal');
+            if(modal) modal.classList.remove('hidden');
+        }
+
+        function closeRenovacionModal() {
+            let modal = document.getElementById('renovacionModal');
+            if(modal) modal.classList.add('hidden');
+        }
+
+        function ejecutarRenovacion(e) {
+            e.preventDefault();
+            let idx = parseInt(document.getElementById('renovarIndex').value);
+            
+            db.contratos[idx].activo = false;
+            syncToGoogleSheets({ tipo: "contrato", ...db.contratos[idx] });
+
+            let nuevo = JSON.parse(JSON.stringify(db.contratos[idx]));
+            nuevo.id = "CTO-" + Date.now();
+            nuevo.canon = parseFloat(document.getElementById('nuevoCanon').value);
+            nuevo.fechaFirma = document.getElementById('nuevaFechaInicio').value;
+            nuevo.fechaVencimiento = document.getElementById('nuevaFechaVencimiento').value;
+            nuevo.activo = true;
+
+            db.contratos.push(nuevo);
+            saveData();
+            syncToGoogleSheets({ tipo: "contrato", ...nuevo });
+            
+            closeRenovacionModal();
+            alert("Contrato renovado con éxito.");
         }
 
         function autoFillPagoInfo() {
-            let idx = document.getElementById('pagoContratoId').value;
+            const idx=document.getElementById('pagoContratoId').value;
             renderHistorialRecibos(idx);
-
-            if (idx === "") {
-                document.getElementById('pagoValor').value = "";
-                document.getElementById('pagoConcepto').value = "";
-                return;
-            }
-
-            let c = db.contratos.at(Number(idx));
-            document.getElementById('pagoValor').value = c.canon;
-
-            let pagosContrato = obtenerPagosDeContrato(c);
-            let fechaBaseStr = String(c.fechaFirma).split('T').shift();
-            let fechaInicio = new Date(fechaBaseStr + "T00:00:00");
-
-            if (pagosContrato.length > 0) {
-                let ultPago = pagosContrato.at(0);
-                let fHasta = extraerFinPeriodo(ultPago.concepto);
-                if (!isNaN(fHasta.getTime()) && fHasta.getFullYear() > 2000) {
-                    fechaInicio = new Date(fHasta);
-                    fechaInicio.setDate(fechaInicio.getDate() + 1);
-                }
-            }
-
-            let fechaFin = new Date(fechaInicio);
-            fechaFin.setMonth(fechaFin.getMonth() + 1);
-            fechaFin.setDate(fechaFin.getDate() - 1);
-
-            document.getElementById('pagoConcepto').value = `${formatDate(fechaInicio)} - ${formatDate(fechaFin)}`;
-        }
-
-        function renderHistorialRecibos(idxSeleccionado = "") {
-            let rList = document.getElementById('recibosList');
-            if (!rList) return;
-
-            let pagosMostrar = [];
-            let tituloFiltro = "";
-
-            if (idxSeleccionado !== "" && db.contratos.at(Number(idxSeleccionado))) {
-                let c = db.contratos.at(Number(idxSeleccionado));
-                pagosMostrar = obtenerPagosDeContrato(c);
-                tituloFiltro = `<div class="bg-blue-50 text-blue-900 text-[11px] font-bold px-3 py-1.5 rounded-lg mb-2 flex justify-between items-center">
-                    <span>Mostrando recibos de: ${c.inquilino}</span>
-                    <span>${pagosMostrar.length} pago(s)</span>
-                </div>`;
-            } else {
-                pagosMostrar = [...db.pagos].sort((a, b) => extraerFinPeriodo(b.concepto) - extraerFinPeriodo(a.concepto));
-            }
-
-            if (pagosMostrar.length === 0) {
-                rList.innerHTML = tituloFiltro + `<p class="text-xs text-gray-400 italic text-center py-4">Este inquilino aún no tiene recibos registrados.</p>`;
-                return;
-            }
-
-            rList.innerHTML = tituloFiltro + pagosMostrar.map((p, index) => {
-                let fechaLimpia = String(p.fecha).includes('T') ? formatDate(new Date(p.fecha)) : p.fecha;
-                let badgeReciente = index === 0 ? `<span class="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded ml-1">MÁS RECIENTE</span>` : "";
-                return `
-                    <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border ${index === 0 ? 'border-emerald-300 bg-emerald-50/30' : ''} text-xs">
-                        <div>
-                            <p class="font-bold text-gray-800">${p.propiedad} - ${p.inquilino} ${badgeReciente}</p>
-                            <p class="text-[10px] text-gray-600 font-semibold">Período: <span class="text-blue-900">${p.concepto}</span></p>
-                            <p class="text-[10px] text-gray-400">${p.id} | Emitido: ${fechaLimpia}</p>
-                        </div>
-                        <div class="text-right flex items-center gap-3">
-                            <span class="font-bold text-green-700">$${Number(p.valor).toLocaleString()}</span>
-                            <button type="button" onclick='verReciboModal(${JSON.stringify(p)})' class="text-blue-900 text-sm"><i class="fa-solid fa-eye"></i></button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            const valor=document.getElementById('pagoValor'),concepto=document.getElementById('pagoConcepto');
+            if(idx===''){valor.value='';concepto.value='';return;}
+            const e=estadoCuenta(db.contratos[Number(idx)]);
+            if(e.error){alert(e.error);return;}
+            valor.value=e.saldoSugerido;
+            concepto.value=e.periodoSugerido.concepto;
         }
 
         function registrarPago(e) {
             e.preventDefault();
-            let cIdx = document.getElementById('pagoContratoId').value;
-            let val = parseFloat(document.getElementById('pagoValor').value);
-            let con = document.getElementById('pagoConcepto').value;
-            let c = db.contratos.at(Number(cIdx));
-
-            let pago = {
-                id: "REC-" + Math.floor(1000 + Math.random() * 9000),
-                contratoId: c.id,
-                fecha: formatDate(new Date()),
-                propiedad: c.propiedad,
-                inquilino: c.inquilino,
-                telefono: c.telefono,
-                valor: val,
-                concepto: con
-            };
-
-            db.pagos.unshift(pago);
-            saveData();
-            syncToGoogleSheets({ tipo: "pago", ...pago });
-            let form = document.getElementById('pagoForm');
-            if(form) form.reset();
-            renderHistorialRecibos("");
-            verReciboModal(pago);
+            const idx=document.getElementById('pagoContratoId').value,c=db.contratos[Number(idx)];
+            const val=Number(document.getElementById('pagoValor').value);
+            if(!c||idx===''||!Number.isFinite(val)||val<=0){alert('Seleccione contrato e ingrese un pago positivo.');return;}
+            const estado=estadoCuenta(c);if(estado.error){alert(estado.error);return;}
+            const concepto=estado.periodoSugerido.concepto;
+            const pago={id:'REC-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),contratoId:c.id,
+              fecha:formatDate(new Date()),propiedad:c.propiedad,inquilino:c.inquilino,telefono:c.telefono,
+              valor:val,concepto};
+            db.pagos.unshift(pago);saveData();syncToGoogleSheets({tipo:'pago',...pago});
+            document.getElementById('pagoContratoId').value=idx;
+            autoFillPagoInfo();verReciboModal(pago);
         }
 
         function verReciboModal(pago) {
-            let fechaLimpia = String(pago.fecha).includes('T') ? formatDate(new Date(pago.fecha)) : pago.fecha;
             document.getElementById('vReciboId').innerText = pago.id;
-            document.getElementById('vFecha').innerText = fechaLimpia;
+            document.getElementById('vFecha').innerText = pago.fecha;
             document.getElementById('vInquilino').innerText = pago.inquilino;
-            document.getElementById('vValor').innerText = Number(pago.valor).toLocaleString();
-            document.getElementById('vValorText').innerText = numeroALetras(Number(pago.valor));
+            document.getElementById('vValor').innerText = pago.valor.toLocaleString();
+            document.getElementById('vValorText').innerText = numeroALetras(pago.valor);
             document.getElementById('vPropiedad').innerText = pago.propiedad;
             document.getElementById('vConcepto').innerText = pago.concepto;
 
             document.getElementById('tempTel').value = pago.telefono || "";
             document.getElementById('tempReciboId').value = pago.id;
 
+            // Resetear la vista previa de la imagen previa
             document.getElementById('previewImagenArea').classList.add('hidden');
             document.getElementById('imageContainer').innerHTML = "";
 
@@ -503,6 +720,7 @@
             if(modal) modal.classList.add('hidden');
         }
 
+        // NUEVO MÉTODO GARANTIZADO DE CAPTURA Y GENERACIÓN
         function generarImagenRecibo() {
             let target = document.getElementById('reciboPrintArea');
             let tel = document.getElementById('tempTel').value;
@@ -524,7 +742,7 @@
 
                 let msg = encodeURIComponent(`Hola, le comparto el comprobante de pago *${reciboId}*. ¡Muchas gracias por su cumplimiento! - Alexander Pérez Ladino`);
                 let btnWpp = document.getElementById('btnWhatsAppDirecto');
-                btnWpp.href = `https://wa.me{tel}?text=${msg}`;
+                btnWpp.href = `https://wa.me/57${tel}?text=${msg}`;
 
                 document.getElementById('previewImagenArea').classList.remove('hidden');
                 
@@ -555,11 +773,315 @@
                 let anioSel = document.getElementById('reporteAnio').value;
 
                 pagosFiltrados = db.pagos.filter(p => {
-                    let fechaStr = String(p.fecha).includes('T') ? formatDate(new Date(p.fecha)) : String(p.fecha);
-                    let partesFecha = fechaStr.split('/');
+                    let partesFecha = p.fecha.split('/');
                     if(partesFecha.length === 3) {
-                        return partesFecha.at(1) === mesSel && partesFecha.at(2) === anioSel;
+                        return partesFecha[1] === mesSel && partesFecha[2] === anioSel;
                     }
                     return false;
                 });
             } else {
+                let inqId = document.getElementById('reporteInquilinoId').value;
+                if(inqId === "") {
+                    pagosFiltrados = db.pagos;
+                } else {
+                    let contratoObj = db.contratos.find(c => c.id === inqId);
+                    if(contratoObj) {
+                        pagosFiltrados = db.pagos.filter(p => p.contratoId === inqId || p.propiedad === contratoObj.propiedad);
+                    } else {
+                        pagosFiltrados = [];
+                    }
+                }
+            }
+
+            totalVal = pagosFiltrados.reduce((sum, p) => sum + p.valor, 0);
+
+            document.getElementById('reporteTotalValor').innerText = "$" + totalVal.toLocaleString();
+            document.getElementById('reporteCantRecibos').innerText = `${pagosFiltrados.length} Recibos`;
+
+            let listaDiv = document.getElementById('reporteListaResultados');
+            if(listaDiv) {
+                if(pagosFiltrados.length === 0) {
+                    listaDiv.innerHTML = `<p class="text-xs text-gray-400 italic text-center py-4">No hay pagos registrados para este filtro.</p>`;
+                } else {
+                    listaDiv.innerHTML = pagosFiltrados.map(p => `
+                        <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border text-xs">
+                            <div>
+                                <p class="font-bold text-gray-800">${p.propiedad} - ${p.inquilino}</p>
+                                <p class="text-[10px] text-gray-500">Recibo: ${p.id} | Fecha: ${p.fecha} | ${p.concepto}</p>
+                            </div>
+                            <span class="font-bold text-green-700">$${p.valor.toLocaleString()}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+
+        // Los pagos se aplican cronológicamente al saldo más antiguo.
+        function fechaContrato(c) {
+            const raw = String(c.fechaFirma || '').split('T')[0];
+            const d = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(raw+'T12:00:00') : parseDate(raw);
+            return d;
+        }
+        function diaLocal(d) { return new Date(d.getFullYear(),d.getMonth(),d.getDate(),12); }
+        function sumarDias(d,n) { const x=diaLocal(d); x.setDate(x.getDate()+n); return x; }
+        function diferenciaDias(a,b) { return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate())-Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/86400000); }
+        function inicioPeriodo(c,n) {
+            const d=fechaContrato(c); const dia=d.getDate();
+            const mes=new Date(d.getFullYear(),d.getMonth()+n,1,12);
+            const ultimo=new Date(mes.getFullYear(),mes.getMonth()+1,0).getDate();
+            return new Date(mes.getFullYear(),mes.getMonth(),Math.min(dia,ultimo),12);
+        }
+        function periodo(c,n) { const ini=inicioPeriodo(c,n); const fin=sumarDias(inicioPeriodo(c,n+1),-1); return {ini,fin,concepto:formatDate(ini)+' - '+formatDate(fin)}; }
+        function pagosDeContrato(c) {
+            return db.pagos.filter(p=>p.contratoId ? p.contratoId===c.id :
+              String(p.propiedad||'').trim().toLowerCase()===String(c.propiedad||'').trim().toLowerCase() &&
+              String(p.inquilino||'').trim().toLowerCase()===String(c.inquilino||'').trim().toLowerCase());
+        }
+        function fechaPago(p) {
+            const raw=String(p.fecha||'');
+            if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return new Date(raw.slice(0,10)+'T12:00:00');
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return parseDate(raw);
+            return new Date(0);
+        }
+        function pagosOrdenados(c) { return pagosDeContrato(c).slice().sort((a,b)=>fechaPago(b)-fechaPago(a) || String(b.id).localeCompare(String(a.id))); }
+        function estadoCuenta(c,fecha=new Date()) {
+            const hoy=diaLocal(fecha), base=fechaContrato(c), canon=Number(c.canon);
+            if (!(base instanceof Date) || isNaN(base) || !(canon>0)) return {error:'Fecha o canon inválido'};
+            let acumulado=pagosDeContrato(c).reduce((v,p)=>v+Math.max(0,Number(p.valor)||0),0);
+            let items=[],i=0;
+            // Se incluye el próximo período para permitir anticipos, sin cobrarlo como vencido.
+            while(i<1200 && inicioPeriodo(c,i)<=hoy) {
+                const p=periodo(c,i), aplicado=Math.min(canon,acumulado);
+                acumulado-=aplicado;
+                const saldo=Math.max(0,canon-aplicado), limite=sumarDias(p.ini,5);
+                items.push({...p,canon,aplicado,saldo,enMora:saldo>0 && hoy>limite,gracia:saldo>0 && hoy>=p.ini && hoy<=limite});
+                i++;
+            }
+            if(i===1200) return {error:'Contrato excede el límite de cálculo'};
+            let n=items.findIndex(p=>p.saldo>0);
+            if(n<0) { n=i; while(acumulado>=canon && n<i+1200){acumulado-=canon;n++;} }
+            let pendiente=items.reduce((v,p)=>v+p.saldo,0);
+            let mora=items.filter(p=>p.enMora);
+            let diasMora=mora.length?diferenciaDias(sumarDias(mora[0].ini,5),hoy):0;
+            return {items,pendiente,mora:mora.length,diasMora,periodoSugerido:periodo(c,n),saldoSugerido:items[n]?.saldo??Math.max(0,canon-acumulado),credito:acumulado};
+        }
+        function escapeHtml(v) { return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+        function renderHistorialRecibos(idx='') {
+            const el=document.getElementById('recibosList'); if(!el)return;
+            const c=idx!==''?db.contratos[Number(idx)]:null;
+            const lista=c?pagosOrdenados(c):db.pagos.slice().sort((a,b)=>fechaPago(b)-fechaPago(a));
+            el.replaceChildren();
+            const cab=document.createElement('p');cab.className='text-xs font-semibold text-blue-900 mb-2';
+            cab.textContent=c?'Recibos de '+c.inquilino+' ('+lista.length+')':'Todos los recibos ('+lista.length+')';el.appendChild(cab);
+            if(!lista.length){const vacio=document.createElement('p');vacio.className='text-xs text-gray-500';vacio.textContent='No hay recibos registrados.';el.appendChild(vacio);}
+            lista.forEach(p=>{
+                const fila=document.createElement('div');fila.className='flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border text-xs mb-2';
+                const info=document.createElement('div');
+                info.innerHTML='<p class="font-bold">'+escapeHtml(p.propiedad)+' — '+escapeHtml(p.inquilino)+'</p><p class="text-gray-500">'+escapeHtml(p.id)+' | '+escapeHtml(p.fecha)+' | '+escapeHtml(p.concepto)+'</p>';
+                const der=document.createElement('div');der.className='flex items-center gap-2';
+                const valor=document.createElement('strong');valor.textContent='$'+Number(p.valor||0).toLocaleString('es-CO');
+                const btn=document.createElement('button');btn.type='button';btn.className='text-blue-900 underline';btn.textContent='Ver';btn.addEventListener('click',()=>verReciboModal(p));
+                der.append(valor,btn);fila.append(info,der);el.appendChild(fila);
+            });
+        }
+        function renderAlertas(contratos) {
+            const el=document.getElementById('alertasContainer');if(!el)return;
+            const hoy=new Date();let html='';
+            contratos.forEach(c=>{
+                const e=estadoCuenta(c,hoy);if(e.error){html+='<p class="text-red-700 text-xs">'+escapeHtml(c.inquilino)+': '+escapeHtml(e.error)+'</p>';return;}
+                const vencidos=e.items.filter(p=>p.saldo>0), prox=e.periodoSugerido;
+                const etiqueta=e.mora?'EN MORA':vencidos.length?'EN PLAZO DE GRACIA':'AL DÍA';
+                const color=e.mora?'red':vencidos.length?'amber':'green';
+                const texto=e.mora?e.mora+' mensualidad(es) en mora · '+e.diasMora+' día(s) desde el fin del primer plazo de gracia':vencidos.length?'Pago pendiente dentro del plazo de gracia':'Sin mensualidades exigibles pendientes';
+                const mensaje=encodeURIComponent('Hola '+c.inquilino+', le recordamos el saldo de arriendo de '+c.propiedad+': $'+e.pendiente.toLocaleString('es-CO')+'. Muchas gracias.');
+                const telefono=String(c.telefono||'').replace(/\D/g,'');
+                html+='<div class="rounded-lg border p-3 bg-'+color+'-50 border-'+color+'-200 mb-2 text-xs">'+
+                '<div class="font-bold">'+escapeHtml(c.propiedad)+' — '+escapeHtml(c.inquilino)+'</div>'+
+                '<div class="font-semibold text-'+color+'-800">'+etiqueta+'</div><div>'+texto+'</div>'+
+                '<div>Saldo exigible: $'+e.pendiente.toLocaleString('es-CO')+' · Próximo período por cubrir: '+escapeHtml(prox.concepto)+'</div>'+
+                (telefono?'<a class="text-green-700 underline" target="_blank" rel="noopener" href="https://wa.me/'+(telefono.length===10?'57':'')+telefono+'?text='+mensaje+'">Recordar por WhatsApp</a>':'')+'</div>';
+            });
+            el.innerHTML=html||'<p class="text-xs text-gray-500">No hay contratos activos.</p>';
+        }
+
+        function renderAll() {
+            let contratosActivos = db.contratos.filter(c => c.activo);
+            
+            let statC = document.getElementById('statContratos');
+            if(statC) statC.innerText = contratosActivos.length;
+
+            let totalRecaudado = db.pagos.reduce((sum, p) => sum + (Number(p.valor)||0), 0);
+            let statR = document.getElementById('statRecaudado');
+            if(statR) statR.innerText = "$" + totalRecaudado.toLocaleString();
+
+            let contratosFiltrados = db.contratos.filter(c => {
+                if (filtroContratos === 'activos') return c.activo;
+                if (filtroContratos === 'inactivos') return !c.activo;
+                return true;
+            });
+
+            let cList = document.getElementById('contratosList');
+            if(cList) {
+                if (contratosFiltrados.length === 0) {
+                    cList.innerHTML = `<p class="text-xs text-gray-400 italic text-center py-6">No hay contratos registrados en esta categoría.</p>`;
+                } else {
+                    cList.innerHTML = contratosFiltrados.map(c => {
+                        let originalIndex = db.contratos.findIndex(item => item.id === c.id);
+                        return `
+                            <div class="bg-white p-4 rounded-xl shadow border border-gray-100 ${!c.activo ? 'opacity-60 bg-gray-50' : ''}">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded ${c.activo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">
+                                            ${c.activo ? 'VIGENTE' : 'INACTIVO'}
+                                        </span>
+                                        <h3 class="font-bold text-gray-900 text-sm mt-1">${c.propiedad}</h3>
+                                        <p class="text-xs text-gray-600">Inquilino: <span class="font-semibold text-gray-800">${c.inquilino}</span> (${c.telefono})</p>
+                                    </div>
+                                    <span class="text-sm font-bold text-blue-900">$${c.canon.toLocaleString()}</span>
+                                </div>
+                                <div class="text-[11px] text-gray-500 space-y-0.5 border-t border-b py-2 my-2">
+                                    <p><strong>Fiador:</strong> ${c.fiador || 'N/A'} (${c.telFiador || 'N/A'})</p>
+                                    <p><strong>Depósito:</strong> $${(c.deposito || 0).toLocaleString()} | <strong>Vigencia:</strong> ${c.fechaFirma} al ${c.fechaVencimiento}</p>
+                                </div>
+                                <div class="flex justify-end gap-2 pt-1">
+                                    ${c.activo ? `<button onclick="openRenovacionModal(${originalIndex})" class="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded font-semibold border border-amber-200"><i class="fa-solid fa-rotate mr-1"></i> Renovación</button>` : ''}
+                                    <button onclick="openContratoModal(${originalIndex})" class="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded font-semibold"><i class="fa-solid fa-pen mr-1"></i> Editar</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            let pSelect = document.getElementById('pagoContratoId');
+            if(pSelect) {
+                const previo=pSelect.value;
+                pSelect.innerHTML = `<option value="">-- Seleccionar Inmueble / Inquilino --</option>` +
+                    db.contratos.map((c, i) => c.activo ? `<option value="${i}">${c.propiedad} - ${c.inquilino}</option>` : '').join('');
+                if([...pSelect.options].some(o=>o.value===previo))pSelect.value=previo;
+            }
+
+            renderHistorialRecibos(pSelect ? pSelect.value : '');
+            renderAlertas(contratosActivos);
+        }
+
+        function formatDate(date) {
+            let d = new Date(date);
+            let day = String(d.getDate()).padStart(2, '0');
+            let month = String(d.getMonth() + 1).padStart(2, '0');
+            let year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function parseDate(str) {
+            let p = str.split('/');
+            return new Date(p[2], p[1] - 1, p[0]);
+        }
+
+        function exportToExcel() {
+            let csv = "ID,Propiedad,Inquilino,Telefono,Canon,Estado\n";
+            db.contratos.forEach(c => {
+                csv += `"${c.id}","${c.propiedad}","${c.inquilino}","${c.telefono}",${c.canon},"${c.activo ? 'Vigente' : 'Inactivo'}"\n`;
+            });
+            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `Arriendos_Reporte_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function numeroALetras(num) {
+            if (num === 0) return "CERO PESOS M/CTE";
+            
+            function Unidades(n){
+                switch(n){
+                    case 1: return "UN"; case 2: return "DOS"; case 3: return "TRES"; case 4: return "CUATRO";
+                    case 5: return "CINCO"; case 6: return "SEIS"; case 7: return "SIETE"; case 8: return "OCHO"; case 9: return "NUEVE";
+                }
+                return "";
+            }
+            function Decenas(n){
+                let decena = Math.floor(n/10);
+                let unidad = n - (decena * 10);
+                switch(decena){
+                    case 1:
+                        switch(unidad){
+                            case 0: return "DIEZ"; case 1: return "ONCE"; case 2: return "DOCE"; case 3: return "TRECE";
+                            case 4: return "CATORCE"; case 5: return "QUINCE";
+                            default: return "DIECI" + Unidades(unidad);
+                        }
+                    case 2:
+                        switch(unidad){
+                            case 0: return "VEINTE";
+                            default: return "VEINTI" + Unidades(unidad);
+                        }
+                    case 3: return DecenasY("TREINTA", unidad);
+                    case 4: return DecenasY("CUARENTA", unidad);
+                    case 5: return DecenasY("CINCUENTA", unidad);
+                    case 6: return DecenasY("SESENTA", unidad);
+                    case 7: return DecenasY("SETENTA", unidad);
+                    case 8: return DecenasY("OCHENTA", unidad);
+                    case 9: return DecenasY("NOVENTA", unidad);
+                    case 0: return Unidades(unidad);
+                }
+            }
+            function DecenasY(strSin, numUnidades) {
+                if (numUnidades > 0) return strSin + " Y " + Unidades(numUnidades);
+                return strSin;
+            }
+            function Centenas(n) {
+                let centenas = Math.floor(n / 100);
+                let decenas = n - (centenas * 100);
+                switch(centenas) {
+                    case 1:
+                        if (decenas > 0) return "CIENTO " + Decenas(decenas);
+                        return "CIEN";
+                    case 2: return "DOSCIENTOS " + Decenas(decenas);
+                    case 3: return "TRESCIENTOS " + Decenas(decenas);
+                    case 4: return "CUATROCIENTOS " + Decenas(decenas);
+                    case 5: return "QUINIENTOS " + Decenas(decenas);
+                    case 6: return "SEISCIENTOS " + Decenas(decenas);
+                    case 7: return "SETECIENTOS " + Decenas(decenas);
+                    case 8: return "OCHOCIENTOS " + Decenas(decenas);
+                    case 9: return "NOVECIENTOS " + Decenas(decenas);
+                }
+                return Decenas(decenas);
+            }
+            function Seccion(n, divisor, strSingular, strPlural) {
+                let cientos = Math.floor(n / divisor);
+                let resto = n - (cientos * divisor);
+                let letras = "";
+                if (cientos > 0) {
+                    if (cientos > 1) letras = Centenas(cientos) + " " + strPlural;
+                    else letras = strSingular;
+                }
+                if (resto > 0) letras += "";
+                return letras;
+            }
+            function Miles(n) {
+                let divisor = 1000;
+                let cientos = Math.floor(n / divisor);
+                let resto = n - (cientos * divisor);
+                let strMiles = Seccion(n, divisor, "UN MIL", "MIL");
+                let strCentenas = Centenas(resto);
+                if(strMiles === "") return strCentenas;
+                return strMiles + " " + strCentenas;
+            }
+            function Millones(n) {
+                let divisor = 1000000;
+                let cientos = Math.floor(n / divisor);
+                let resto = n - (cientos * divisor);
+                let strMillones = Seccion(n, divisor, "UN MILLON", "MILLONES");
+                let strMiles = Miles(resto);
+                if(strMillones === "") return strMiles;
+                return strMillones + " " + strMiles;
+            }
+
+            return (Millones(num) + " PESOS M/CTE").trim().replace(/\s+/g, ' ');
+        }
+    </script>
+</body>
+</html>
